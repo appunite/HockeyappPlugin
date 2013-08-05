@@ -36,3 +36,6 @@ tmp
 *.bak
 *.swp
 *.launch
+
+#Credentials
+credentials.properties

@@ -8,6 +8,7 @@ dependencies {
 apply plugin: 'maven'
 
 repositories {
+    maven {url 'https://commondatastorage.googleapis.com/maven-repository/'}
     mavenCentral()
 }
 
@@ -23,19 +24,72 @@ configurations {
 }
 
 dependencies {
-    deployerJars "org.apache.maven.wagon:wagon-ssh:2.2"
+    deployerJars 'com.googlesource.gerrit:gs-maven-wagon:3.3.1'
 }
 
 group = 'org.gradle'
-version = '1.0-SNAPSHOT'
+def baseVersionName = "1.1"
+if (project.hasProperty("versionSuffix")) {
+    project.ext.versionSuffix = project.versionSuffix
+} else {
+    project.ext.versionSuffix = "snapshot"
+}
+if (project.ext.versionSuffix) {
+    version = "${baseVersionName}-${project.versionSuffix}"
+} else {
+    version = "${baseVersionName}"
+}
+
+Properties props = new Properties()
+def credentialsProperties = file("credentials.properties")
+if (credentialsProperties.exists()) {
+        props.load(new FileInputStream(credentialsProperties))
+}
+
+task createPomFile {
+    project.ext.pomFile = pom {
+        version = project.version
+        artifactId = project.archivesBaseName
+        groupId = project.group
+        project {
+            name 'HockeyappPlugin'
+            description 'Plugin allow to upload applications to hockeyapp.'
+            url 'http://appunite.com'
+            inceptionYear '2012'
+
+            licenses {
+                license {
+                    name 'The Apache Software License, Version 2.0'
+                    url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    distribution 'repo'
+                }
+            }
+
+            scm {
+                url "https://review.appunite.com/androidauremoteimageloader"
+                connection "https://review.appunite.com/androidauremoteimageloader.git"
+            }
+            developers {
+                developer {
+                    name 'Jacek Marchwicki <jacek.marchwicki@gmail.com>'
+                }
+            }
+        }
+    }
+}
 
 uploadArchives {
+    description = "Upload archives to maven repository"
+    dependsOn createPomFile
     repositories {
         mavenDeployer {
             configuration = configurations.deployerJars
-            repository(url: "sftp://mavenrepo@192.158.30.128/repository/") {
-                authentication(userName: "mavenrepo")
+            repository(url: "gs://maven-repository") {
+                authentication(
+                userName: "${props.getProperty('mavenUser', null)}" ,
+                password: "${props.getProperty('mavenPassword', null)}")
             }
+            pom = project.ext.pomFile
         }
     }
 }
